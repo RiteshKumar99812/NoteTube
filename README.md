@@ -1,114 +1,95 @@
-# NoteTube — YouTube to Structured Study Notes
+# NoteTube
 
-A clean, modern, editorial light-themed React + TypeScript + Tailwind CSS frontend that converts YouTube lectures into structured study notes.
+I watch a lot of lectures on YouTube and I'm bad at taking notes while watching. So I built this. You paste a link, and it gives you proper study notes: a short summary, the main concepts with timestamps you can click, a small glossary, and a few quiz questions to test yourself afterwards.
 
-Inspired by everyday productivity tools like **Notion**, **Readwise**, and **Linear's light mode**, NoteTube emphasizes readability, typography, and clear visual hierarchy without distracting neon gradients or purple AI tropes.
+The frontend is React + TypeScript + Tailwind. The backend is FastAPI with PostgreSQL (migrations with Alembic).
 
----
+Status: the frontend is finished and works on its own with sample notes. The backend is the part I'm building right now.
 
-## 🎨 Design System & Palette
+## What it does
 
-- **Backgrounds**: Pure white (`#FFFFFF`) and warm off-white (`#FAFAFA`)
-- **Borders**: Subtle slate/neutral gray (`#E5E7EB`)
-- **Primary Text**: Deep charcoal (`#111827`)
-- **Secondary Text**: Muted slate (`#4B5563`)
-- **Single Accent Color**: Clean YouTube crimson red (`#DC2626` / hover `#B91C1C`)
-- **Typography**: Plus Jakarta Sans (UI) & JetBrains Mono (timestamps & IDs)
-- **Icons**: Clean outline icons via `lucide-react`
-- **Zero Prohibited Styles**: Strictly no purple, violet, indigo, or neon gradients.
+You paste a YouTube link (or just the video ID) and it figures out the video from any of the usual formats: normal links, youtu.be, shorts, embeds. It shows the thumbnail so you know it picked the right one, then generates the notes.
 
----
+The notes page has:
 
-## ⚡ Features
+- a TL;DR at the top
+- key concepts in the order they come up in the video, each with a timestamp that opens YouTube at that exact second
+- a glossary of the important terms
+- revision questions where you try to answer first and then reveal the answer
 
-1. **Top Navigation Bar**:
-   - Minimalist white navbar with subtle border.
-   - NoteTube brand mark with crimson play emblem.
-   - **"History / Saved Notes"** toggle with dynamic count badge opening a slide-over drawer.
-   - "Sample Notes" instant preview button and "New Video" reset action.
+You can copy the notes as Markdown or download them as a `.md` file, which is handy for Notion or Obsidian. Past notes are saved in a side drawer so you can open them again later.
 
-2. **Hero & Video URL Detection**:
-   - Wide prominent input bar with **Paste** (from clipboard), **Clear (X)**, and crimson **Generate Notes** button.
-   - Real-time YouTube video ID extractor supporting all formats (`youtube.com/watch?v=...`, `youtu.be/...`, shorts, embeds, and raw 11-char IDs).
-   - Instant compact video preview card displaying the official YouTube thumbnail (`https://img.youtube.com/vi/${videoId}/hqdefault.jpg`), video ID badge, and link to YouTube.
-   - Realistic multi-step loading skeleton state during synthesis.
+If the API isn't running, the app tells you and lets you load some sample notes (Karpathy's LLM lecture, CS50, Stanford CS229) so you can still see how everything looks.
 
-3. **Structured Notes Output View (Main Workspace)**:
-   - **Sticky Action Toolbar**:
-     - **Copy Markdown** button with an interactive `Copied!` confirmation state.
-     - **Download .md** button exporting the document as a clean `.md` file for Notion, Obsidian, or local markdown readers.
-     - **Share** and **Reset / New Video** actions.
-   - **Document Header**:
-     - Clean, readable H1 title.
-     - Source video badge with YouTube external link.
-     - Reading time estimation and topic count.
-     - Light gray / warm-tinted **TL;DR Executive Summary** callout box.
-   - **Key Concepts Section**:
-     - Chronological concept cards with clear headings and crisp bullet points.
-     - Clickable timestamp badges (e.g., `04:15`) in neutral gray pills that jump directly to `https://www.youtube.com/watch?v=${videoId}&t=${seconds}s` in a new tab.
-   - **Key Terms & Glossary**:
-     - Two-column grid of key vocabulary with clear term headers and definitions.
-   - **Self-Test Revision Quiz**:
-     - Accordion cards with questions and interactive **"Reveal Answer"** / **"Hide Answer"** toggles.
-     - **"Reveal All / Hide All"** toggle.
+## Running it
 
-4. **Slide-over History Drawer**:
-   - Persists generated notes in `localStorage`.
-   - Card previews with thumbnails, titles, timestamps, and one-click loading.
-   - Ability to delete single notes or clear all history.
+You need Node 20 or newer.
 
-5. **API Integration & Fallback Mock Mode**:
-   - Configured to `POST` to `http://localhost:8000/api/generate-notes` with body `{ "video_id": "..." }`.
-   - Built-in instant **Sample Notes** loader for curated lectures (Andrej Karpathy's LLMs, Harvard CS50, Stanford CS229 ML).
-   - If FastAPI is offline or not yet started, displays a connection banner with a one-click button to preview and test the complete UI layout with mock data.
+```
+git clone <this repo>
+cd notegen
+npm install
+npm run dev
+```
 
----
+Then open http://localhost:5173.
 
-## 📐 TypeScript Data Schema
+Other scripts:
 
-The data structures strictly match the requested JSON interface:
+```
+npm run build
+npm run preview
+npm run lint
+```
 
-```ts
-interface ConceptSection {
-  heading: string;
-  timestamp?: string;
-  bullets: string[];
-}
+## How the backend works
 
-interface GlossaryItem {
-  term: string;
-  definition: string;
-}
+The frontend sends a POST request to `http://localhost:8000/api/generate-notes` with the video ID:
 
-interface QuizItem {
-  question: string;
-  answer: string;
-}
+```json
+{ "video_id": "dQw4w9WgXcQ" }
+```
+
+The backend fetches the transcript, sends it to an LLM with a fixed JSON schema, checks the result with Pydantic, and returns it. Finished notes are stored in PostgreSQL by video ID, so the same video doesn't need to be processed twice.
+
+The response looks like this:
+
 
 interface VideoNotes {
   title: string;
   tldr: string;
-  key_concepts: ConceptSection[];
-  glossary: GlossaryItem[];
-  revision_questions: QuizItem[];
+  key_concepts: {
+    heading: string;
+    timestamp?: string;  
+    bullets: string[];
+  }[];
+  glossary: { term: string; definition: string }[];
+  revision_questions: { question: string; answer: string }[];
 }
 ```
 
----
+## Folders
 
-## 🚀 Getting Started
-
-### Development Server
-
-```bash
-npm run dev
+```
+src/            frontend code
+public/         static files
+index.html
+vite.config.ts
 ```
 
-Visit [http://localhost:5173](http://localhost:5173).
+The backend will go in its own `backend/` folder next to the frontend.
 
-### Production Build
+## Design
 
-```bash
-npm run build
-npm run preview
-```
+I wanted it to look like a reading tool and not a flashy AI demo. White and off-white backgrounds, grey borders, dark text, and one red accent that matches YouTube. Plus Jakarta Sans for the interface and JetBrains Mono for timestamps. No gradients.
+
+## Ideas for later
+
+- Show progress while the notes are being generated
+- Export to PDF
+- Read the API URL from an environment variable instead of hardcoding it
+- Keyboard shortcuts
+
+## Notes
+
+If something breaks or you have an idea, open an issue. I haven't added a license yet.
